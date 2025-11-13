@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Shinhan Chat - All Rooms</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --shinhan-blue: #0046FF;
+            --light-gray: #f0f2f5;
+            --text-color: #333;
+            --border-color: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+            background-color: var(--light-gray);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background-color: var(--shinhan-blue);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .room-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .room-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .room-item:last-child {
+            border-bottom: none;
+        }
+
+        .room-info {
+            font-size: 1.1em;
+        }
+        .room-info .room-id {
+            font-weight: bold;
+            color: var(--shinhan-blue);
+        }
+        .room-info .participants {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .join-button {
+            background-color: var(--shinhan-blue);
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+        .join-button:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        전체 채팅방 목록
+    </div>
+    <ul class="room-list">
+        <li th:each="room : ${rooms}" class="room-item">
+            <div class="room-info">
+                <span class="room-id" th:text="'Room ' + ${room.roomId}">Room 1</span>
+                <div class="participants" th:text="${room.hostName} + ' 님과 ' + ${room.guestName} + ' 님의 대화방'">Participants</div>
+            </div>
+            <!-- 임시로 sender=1 (user1)로 입장하도록 설정 -->
+            <a th:href="@{/chat-room/{roomId}(roomId=${room.roomId}, sender=1)}" class="join-button">입장하기</a>
+        </li>
+        <li th:if="${#lists.isEmpty(rooms)}" class="room-item">
+            <div class="room-info">
+                생성된 채팅방이 없습니다.
+            </div>
+        </li>
+    </ul>
+</div>
+
+</body>
+</html>

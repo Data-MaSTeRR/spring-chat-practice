@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Shinhan Chat</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --shinhan-blue: #0046FF;
+            --light-gray: #f0f2f5;
+            --text-color: #333;
+            --border-color: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+            background-color: var(--light-gray);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #chat-container {
+            width: 400px;
+            height: 90vh;
+            max-height: 800px;
+            background-color: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #chat-header {
+            background-color: var(--shinhan-blue);
+            color: white;
+            padding: 16px;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        #messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .message-bubble {
+            padding: 10px 14px;
+            border-radius: 18px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+
+        .message-bubble .sender-name {
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .my-message {
+            background-color: var(--shinhan-blue);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .other-message {
+            background-color: #e9e9eb;
+            color: var(--text-color);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+
+        #input-container {
+            display: flex;
+            padding: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        #message-input {
+            flex-grow: 1;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 10px 16px;
+            font-size: 1em;
+            outline: none;
+        }
+        #message-input:focus {
+            border-color: var(--shinhan-blue);
+        }
+
+        #send-button {
+            background-color: var(--shinhan-blue);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            margin-left: 10px;
+            cursor: pointer;
+            font-size: 1.2em;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #send-button:hover {
+            opacity: 0.9;
+        }
+    </style>
+    <script th:src="@{/webjars/sockjs-client/1.5.1/sockjs.min.js}"></script>
+    <script th:src="@{/webjars/stomp-websocket/2.3.4/stomp.min.js}"></script>
+</head>
+<body>
+
+<div id="chat-container">
+    <div id="chat-header">
+        Chat Room: <span th:text="${roomId}"></span>
+    </div>
+    <div id="messages"></div>
+    <div id="input-container">
+        <input type="text" id="message-input" placeholder="메시지를 입력하세요...">
+        <button id="send-button" title="Send">➔</button>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const roomId = /*[[${roomId}]]*/ 'default';
+    const currentUserId = /*[[${sender}]]*/ 'default'; // 현재 사용자의 ID
+
+    const sock = new SockJS("/ws-stomp");
+    const stompClient = Stomp.over(sock);
+
+    stompClient.connect({}, function(frame) {
+        console.log('Connected: ' + frame);
+
+        stompClient.subscribe('/topic/chat/room/' + roomId, function(message) {
+            showMessage(JSON.parse(message.body));
+        });
+
+        loadPreviousMessages();
+    });
+
+    function showMessage(message) {
+        const messagesDiv = document.getElementById('messages');
+        const messageBubble = document.createElement('div');
+        messageBubble.classList.add('message-bubble');
+
+        // 내가 보낸 메시지인지 확인
+        if (message.senderId == currentUserId) {
+            messageBubble.classList.add('my-message');
+        } else {
+            messageBubble.classList.add('other-message');
+            const senderNameDiv = document.createElement('div');
+            senderNameDiv.classList.add('sender-name');
+            senderNameDiv.textContent = message.senderName;
+            messageBubble.appendChild(senderNameDiv);
+        }
+
+        const messageContent = document.createElement('div');
+        messageContent.textContent = message.message;
+        messageBubble.appendChild(messageContent);
+
+        messagesDiv.appendChild(messageBubble);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function sendMessage() {
+        const messageInput = document.getElementById('message-input');
+        const message = messageInput.value.trim();
+
+        if (message && stompClient) {
+            const chatMessage = {
+                roomId: roomId,
+                senderId: currentUserId,
+                message: message
+            };
+            stompClient.send("/app/chat/message", {}, JSON.stringify(chatMessage));
+            messageInput.value = '';
+        }
+    }
+
+    function loadPreviousMessages() {
+        fetch(`/api/v1/chat/rooms/${roomId}/messages`)
+            .then(response => response.json())
+            .then(data => {
+                data.reverse().forEach(message => {
+                    showMessage(message);
+                });
+            })
+            .catch(error => console.error('Error loading previous messages:', error));
+    }
+
+    document.getElementById('send-button').addEventListener('click', sendMessage);
+    document.getElementById('message-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+    /*]]>*/
+</script>
+
+</body>
+</html>
